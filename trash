@@ -1,0 +1,63 @@
+
+
+
+#include "uthreads.h"
+#include "thread.h"
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <queue>
+#include <memory>
+#include <map>
+#include <list>
+
+
+std::priority_queue<int, std::vector<int>, std::greater<int> > free_id_list;
+
+std::map<int,std::unique_ptr<thread>> blocked ;
+std::vector<std::unique_ptr<thread>> ready_list;
+std::unique_ptr<thread> running;
+
+int uthread_init(int quantum_usecs) {
+
+    for (int i = 0; i < MAX_THREAD_NUM; ++i) {
+        free_id_list.push(i);
+    }
+    return 0;
+}
+
+int uthread_spawn(thread_entry_point entry_point) {
+    if (free_id_list.empty()) {
+        return -1;
+    }
+    int free_id = free_id_list.top();
+    free_id_list.pop();
+    ready_list.push_back(std::unique_ptr<thread>(new thread(free_id)));
+    return 0;
+}
+
+int uthread_terminate(int tid) {
+    int res;
+    if (running && running->getId() == tid) {
+        free_id_list.push(tid);
+        return 0;
+    }
+    if (blocked.erase(tid) != 0) {
+        free_id_list.push(tid);
+        return 0;
+    }
+    for (int i = 0; i < ready_list.size(); ++i) {
+        if (ready_list[i]->getId() == tid) {
+
+            ready_list.erase(std::remove(ready_list.begin(), ready_list.end(), ready_list[i]), ready_list.end());
+            // we might dont need to erase to ready.list.end();
+            free_id_list.push(tid);
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int uthread_block(int tid) {
+    return 0;
+}
