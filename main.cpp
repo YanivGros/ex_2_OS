@@ -23,6 +23,7 @@ void f (void)
 
 int main(void)
 {
+
     int q[2] = {10, 20};
     if (uthread_init(10) == -1)
     {
@@ -30,8 +31,13 @@ int main(void)
     }
     for (int i = 0; i < 101; i++)
         cout << uthread_spawn(f) << endl;
+    for (;;){
+        printf("ss");
+    }
 
-    uthread_terminate(5);
+}
+/*
+ *  uthread_terminate(5);
 
     cout << uthread_spawn(f) << endl;
     cout << uthread_spawn(f) << endl;
@@ -59,7 +65,7 @@ int main(void)
 
     uthread_terminate(0);
     return 0;
-}
+ */
 
 
 

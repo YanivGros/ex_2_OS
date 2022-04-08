@@ -31,13 +31,17 @@ int main(void)
     {
         printf("sigaction error.");
     }
+if (sigaction(SIGVTALRM, &sa, NULL) < 0)
+    {
+        printf("sigaction error.");
+    }
 
     // Configure the timer to expire after 1 sec... */
     timer.it_value.tv_sec = 1;        // first time interval, seconds part
     timer.it_value.tv_usec = 0;        // first time interval, microseconds part
 
     // configure the timer to expire every 3 sec after that.
-    timer.it_interval.tv_sec = 3;    // following time intervals, seconds part
+    timer.it_interval.tv_sec = 1;    // following time intervals, seconds part
     timer.it_interval.tv_usec = 0;    // following time intervals, microseconds part
 
     // Start a virtual timer. It counts down whenever this process is executing.
