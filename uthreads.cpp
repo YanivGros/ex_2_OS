@@ -38,8 +38,9 @@ public:
     };
     bool is_blocked = false;
     int time_sleep = 0;
-    thread_entry_point entry_point;
     int id;
+    int sum_quantums = 0;
+    thread_entry_point entry_point;
     place place;
     char stack[STACK_SIZE]{0};
 
@@ -55,6 +56,8 @@ typedef std::vector<int> vector_int;
 
 class Scheduler {
 public:
+    int quantum_usecs = 0;
+    int time_counter = 0;
     min_heap free_id_list;
 
     int free_id_list_top_pop() {
@@ -105,6 +108,7 @@ void move_to_next_ready_thread(bool move_to_ready);
 
 void print_error(std::string msg);
 
+bool reset_timer();
 
 Scheduler sc;
 
@@ -123,7 +127,7 @@ int uthread_init(int quantum_usecs) {
     for (int i = 1; i < MAX_THREAD_NUM; ++i) {
         sc.free_id_list.push(i);
     }
-
+    sc.quantum_usecs = quantum_usecs;
     /*
      * set SIGVTALRM
      */
@@ -170,6 +174,7 @@ int uthread_spawn(thread_entry_point entry_point) {
     /*
      * put the new thread in ready_list
      */
+
     sc.ready_list.push_back(free_id);
     sc.in_use_threads_map.insert(std::pair<int, Thread *>(free_id, thread));
     address_t sp = (address_t) thread->stack + STACK_SIZE - sizeof(address_t);
@@ -183,6 +188,16 @@ int uthread_spawn(thread_entry_point entry_point) {
 
 int uthread_terminate(int tid) {
     /*
+     * check if the thread is the 0 thread
+     */
+    if (tid == 0) {
+        for (auto &item: sc.in_use_threads_map) {
+            delete item.second; // releasing all resource
+        }
+        exit(EXIT_SUCCESS);
+    }
+
+    /*
      * check validity
      */
     if (sc.in_use_threads_map.count(tid) == 0) {
@@ -190,15 +205,6 @@ int uthread_terminate(int tid) {
         return -1;
     }
 
-    /*
-     * check if the thread is the 0 thread
-     */
-    if (tid == 0) {
-        for (auto &item: sc.in_use_threads_map) {
-            delete item.second; // releasing all resource
-            exit(EXIT_SUCCESS);
-        }
-    }
     /*
      * main
      */
@@ -219,6 +225,7 @@ int uthread_terminate(int tid) {
 }
 
 void time_handler(int) {
+    sc.time_counter++;
     move_to_next_ready_thread(true);
 }
 
@@ -226,6 +233,7 @@ void move_to_next_ready_thread(bool move_to_ready) {
     // mask
     auto next = sc.ready_list_top_pop();
     sc.in_use_threads_map.at(next)->place = Thread::Running;
+    sc.in_use_threads_map.at(next)->sum_quantums++;
     if (move_to_ready) {
         sc.ready_list.push_back(sc.id_running);
         sc.in_use_threads_map.at(sc.id_running)->place = Thread::Ready;
@@ -279,6 +287,15 @@ int uthread_block(int tid) {
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_resume(int tid) {
+    if (sc.in_use_threads_map.count(tid) == 0) {
+        print_error("doesnt match any in use thread id");
+        return -1;
+    }
+    auto cur_thread = sc.in_use_threads_map.at(tid);
+    if (cur_thread->place == Thread::Ready || cur_thread->place == Thread::Running) {
+        return 0;
+    }
+    cur_thread->is_blocked = false;
     return 0;
 }
 

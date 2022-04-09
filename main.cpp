@@ -22,26 +22,19 @@ void f (void)
     while(1);
 }
 
-int main(void)
-{
+int main(void) {
     std::vector<int> v = {7, 5, 16, 8};
     auto b = v;
     b.push_back(20);
 
     int q[2] = {10, 20};
-    if (uthread_init(10) == -1)
-    {
+    if (uthread_init(10) == -1) {
         return 0;
     }
     for (int i = 0; i < 90; i++)
         cout << uthread_spawn(f) << endl;
     uthread_terminate(10);
-    for (;;){
-    }
-
-}
-/*
- *  uthread_terminate(5);
+    uthread_terminate(5);
 
     cout << uthread_spawn(f) << endl;
     cout << uthread_spawn(f) << endl;
@@ -66,11 +59,10 @@ int main(void)
     cout << uthread_spawn(f) << endl;
 
 
-
     uthread_terminate(0);
+    printf("");
     return 0;
- */
-
+}
 
 
 

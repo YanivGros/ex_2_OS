@@ -123,6 +123,19 @@ untitled3/fast:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/build
 .PHONY : untitled3/fast
 
+#=============================================================================
+# Target rules for targets named untitled32
+
+# Build rule for target.
+untitled32: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 untitled32
+.PHONY : untitled32
+
+# fast build rule for target.
+untitled32/fast:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/build
+.PHONY : untitled32/fast
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -150,6 +163,33 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+test/test1.in.o: test/test1.in.cpp.o
+
+.PHONY : test/test1.in.o
+
+# target to build an object file
+test/test1.in.cpp.o:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.o
+.PHONY : test/test1.in.cpp.o
+
+test/test1.in.i: test/test1.in.cpp.i
+
+.PHONY : test/test1.in.i
+
+# target to preprocess a source file
+test/test1.in.cpp.i:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.i
+.PHONY : test/test1.in.cpp.i
+
+test/test1.in.s: test/test1.in.cpp.s
+
+.PHONY : test/test1.in.s
+
+# target to generate assembly for a file
+test/test1.in.cpp.s:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.s
+.PHONY : test/test1.in.cpp.s
+
 uthreads.o: uthreads.cpp.o
 
 .PHONY : uthreads.o
@@ -157,6 +197,7 @@ uthreads.o: uthreads.cpp.o
 # target to build an object file
 uthreads.cpp.o:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/uthreads.cpp.o
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/uthreads.cpp.o
 .PHONY : uthreads.cpp.o
 
 uthreads.i: uthreads.cpp.i
@@ -166,6 +207,7 @@ uthreads.i: uthreads.cpp.i
 # target to preprocess a source file
 uthreads.cpp.i:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/uthreads.cpp.i
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/uthreads.cpp.i
 .PHONY : uthreads.cpp.i
 
 uthreads.s: uthreads.cpp.s
@@ -175,6 +217,7 @@ uthreads.s: uthreads.cpp.s
 # target to generate assembly for a file
 uthreads.cpp.s:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/uthreads.cpp.s
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/uthreads.cpp.s
 .PHONY : uthreads.cpp.s
 
 # Help Target
@@ -186,9 +229,13 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... untitled3"
+	@echo "... untitled32"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... test/test1.in.o"
+	@echo "... test/test1.in.i"
+	@echo "... test/test1.in.s"
 	@echo "... uthreads.o"
 	@echo "... uthreads.i"
 	@echo "... uthreads.s"
