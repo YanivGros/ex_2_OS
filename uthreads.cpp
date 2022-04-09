@@ -96,6 +96,7 @@ public:
                 blocked.erase(std::remove(blocked.begin(), blocked.end(), t));
             }
         }
+        blocked = temp_blocked;
     }
 };
 
@@ -227,6 +228,7 @@ int uthread_terminate(int tid) {
 void time_handler(int) {
     sc.time_counter++;
     move_to_next_ready_thread(true);
+    sc.update_sleepers();
 }
 
 void move_to_next_ready_thread(bool move_to_ready) {
@@ -297,5 +299,82 @@ int uthread_resume(int tid) {
     }
     cur_thread->is_blocked = false;
     return 0;
+}
+
+/**
+ * @brief Blocks the RUNNING thread for num_quantums quantums.
+ *
+ * Immediately after the RUNNING thread transitions to the BLOCKED state a scheduling decision should be made.
+ * After the sleeping time is over, the thread should go back to the end of the READY threads list.
+ * The number of quantums refers to the number of times a new quantum starts, regardless of the reason. Specifically,
+ * the quantum of the thread which has made the call to uthread_sleep isn’t counted.
+ * It is considered an error if the main thread (tid==0) calls this function.
+ *
+ * @return On success, return 0. On failure, return -1.
+*/
+int uthread_sleep(int num_quantums) {
+    // need to mask
+    if (sc.id_running == 0) {
+        print_error("rani go home you're tired");
+        return -1;
+    }
+    auto cur_thread = sc.in_use_threads_map.at(sc.id_running);
+    move_to_next_ready_thread(false);
+    if (!reset_timer()) {
+        print_error("setitimer error.");
+        return -1;
+    }
+    cur_thread->place = Thread::Blocked;
+    cur_thread->time_sleep = num_quantums;
+    sc.blocked.push_back(sc.id_running);
+    return 0;
+}
+
+bool reset_timer() {
+    struct itimerval timer = {0};
+    timer.it_value.tv_sec = 0;        // first time interval, seconds part
+    timer.it_value.tv_usec = sc.quantum_usecs;        // first time interval, microseconds part
+    timer.it_interval.tv_sec = 0;    // following time intervals, seconds part
+    timer.it_interval.tv_usec = sc.quantum_usecs;
+    if (setitimer(ITIMER_VIRTUAL, &timer, NULL)) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Returns the thread ID of the calling thread.
+ *
+ * @return The ID of the calling thread.
+*/
+int uthread_get_tid() { return sc.id_running; }
+
+
+/**
+ * @brief Returns the total number of quantums since the library was initialized, including the current quantum.
+ *
+ * Right after the call to uthread_init, the value should be 1.
+ * Each time a new quantum starts, regardless of the reason, this number should be increased by 1.
+ *
+ * @return The total number of quantums.
+*/
+int uthread_get_total_quantums() { return sc.time_counter; }
+
+
+/**
+ * @brief Returns the number of quantums the thread with ID tid was in RUNNING state.
+ *
+ * On the first time a thread runs, the function should return 1. Every additional quantum that the thread starts should
+ * increase this value by 1 (so if the thread with ID tid is in RUNNING state when this function is called, include
+ * also the current quantum). If no thread with ID tid exists it is considered an error.
+ *
+ * @return On success, return the number of quantums of the thread with ID tid. On failure, return -1.
+*/
+int uthread_get_quantums(int tid) {
+    if (sc.in_use_threads_map.count(tid) == 0) {
+        print_error("doesnt match any in use thread id");
+        return -1;
+    }
+    return sc.in_use_threads_map.at(tid)->sum_quantums;
 }
 
