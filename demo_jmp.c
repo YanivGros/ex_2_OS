@@ -65,7 +65,7 @@ sigjmp_buf env[2];
 int current_thread = -1;
 
 
-void jump_to_thread(int tid)
+void jump_to_next_thread_in_readylist(int tid)
 {
     current_thread = tid;
     siglongjmp(env[tid], 1);

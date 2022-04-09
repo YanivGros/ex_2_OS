@@ -146,3 +146,54 @@ int uthread_sleep(int num_quantums) {
     }
 }
 
+
+// ************************
+// void jump_to_next_thread_in_readylist() {
+//
+//    auto tid = sc.ready_list_top_pop();
+//    sc.add_ready_list(sc.getRunning());
+//    sc.setRunning(tid);
+//    printf("jumping to %d \n", tid);
+//    siglongjmp(sc.env[tid], 1);
+//}
+
+
+
+int uthread_terminate(int tid) {
+    int res;
+    auto res_thread = sc.find_in_all_thread(tid);
+    auto thread_place = res_thread->place_;
+    return 0;
+}
+
+remove_from_vector(int tid) {
+    sc.remove_thread(tid);
+    auto cur_thread = sc.get_thread(tid);
+    auto thread_place = cur_thread->place_;
+
+    auto all_threads = sc.get_all_threads();
+    thread::place cur_place = all_threads.at(tid)->place_;
+    switch (cur_place) {
+        case thread::Ready:
+            ready_list.erase(std::remove(ready_list.begin(), ready_list.end(), tid), ready_list.end());
+            return;
+        case thread::Blocked:
+            blocked.erase(std::remove(ready_list.begin(), ready_list.end(), tid), ready_list.end());
+            return;
+        case thread::Running:
+            running = -1;
+            return;
+        default:
+            return;
+    }
+
+    void timer_handler(int sig) {
+        int ret_val = sigsetjmp(sc.env[sc.getRunning()], 1);
+//    printf("yield: ret_val=%d\n", ret_val);
+        bool did_just_save_bookmark = ret_val == 0;
+//    bool did_jump_from_another_thread = ret_val != 0;
+        if (did_just_save_bookmark) {
+            jump_to_next_thread_in_readylist(sc.ready_list_top_pop());
+        }
+    }
+

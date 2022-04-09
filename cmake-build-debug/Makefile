@@ -123,46 +123,6 @@ untitled3/fast:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/build
 .PHONY : untitled3/fast
 
-#=============================================================================
-# Target rules for targets named untitled2
-
-# Build rule for target.
-untitled2: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 untitled2
-.PHONY : untitled2
-
-# fast build rule for target.
-untitled2/fast:
-	$(MAKE) -f CMakeFiles/untitled2.dir/build.make CMakeFiles/untitled2.dir/build
-.PHONY : untitled2/fast
-
-demo_itimer.o: demo_itimer.c.o
-
-.PHONY : demo_itimer.o
-
-# target to build an object file
-demo_itimer.c.o:
-	$(MAKE) -f CMakeFiles/untitled2.dir/build.make CMakeFiles/untitled2.dir/demo_itimer.c.o
-.PHONY : demo_itimer.c.o
-
-demo_itimer.i: demo_itimer.c.i
-
-.PHONY : demo_itimer.i
-
-# target to preprocess a source file
-demo_itimer.c.i:
-	$(MAKE) -f CMakeFiles/untitled2.dir/build.make CMakeFiles/untitled2.dir/demo_itimer.c.i
-.PHONY : demo_itimer.c.i
-
-demo_itimer.s: demo_itimer.c.s
-
-.PHONY : demo_itimer.s
-
-# target to generate assembly for a file
-demo_itimer.c.s:
-	$(MAKE) -f CMakeFiles/untitled2.dir/build.make CMakeFiles/untitled2.dir/demo_itimer.c.s
-.PHONY : demo_itimer.c.s
-
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -226,10 +186,6 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... untitled3"
-	@echo "... untitled2"
-	@echo "... demo_itimer.o"
-	@echo "... demo_itimer.i"
-	@echo "... demo_itimer.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

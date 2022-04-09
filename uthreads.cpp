@@ -17,125 +17,9 @@
 #include <map>
 #include <list>
 
-
-class thread {
-public:
-    enum place {
-        Ready, Running, Blocked
-    };
-    thread_entry_point entry_point_;
-    int id_;
-    place place_;
-    int quantoms;
-    char stack[STACK_SIZE]{0};
-
-    thread(thread_entry_point entryPoint, int id, place place) :
-            entry_point_(entryPoint), id_(id), place_(place), quantoms(1) {
-    }
-};
-
-typedef std::priority_queue<int, std::vector<int>, std::greater<int> > min_heap;
-typedef std::map<int, thread *> map;
-typedef std::vector<int> vector_int;
-
-void timer_handler(int);
-
-void pose_cur();
-
-void jump_to_thread(int list);
-
-class scheduler {
-    min_heap free_id_list;
-    map all_threads;
-    vector_int blocked;
-    vector_int ready_list;
-    int running{};
-public:
-    int getRunning() const {
-        return running;
-    }
-
-    void setRunning(int running) {
-        scheduler::running = running;
-    }
-
-private:
-    int quantum{};
-public:
-
-    sigjmp_buf env[MAX_THREAD_NUM]{};
-
-    /* quantum handle */
-    void setQuantum(int quant) {
-        scheduler::quantum = quant;
-    }
-
-    /* free id list handle */
-    void push_free_id(int n) {
-        free_id_list.push(n);
-    }
-
-    bool is_id_empty() {
-        return free_id_list.empty();
-    }
-
-    int top_and_pop_free_id() {
-        int ret = free_id_list.top();
-        free_id_list.pop();
-        return ret;
-    }
-
-    /* ready list handle */
-    void add_ready_list(int i) {
-        ready_list.push_back(i);
-    }
-
-    int ready_list_top_pop() {
-        if (ready_list.empty()) {
-            return -1;
-        }
-        int ret = ready_list.at(0);
-        ready_list.erase(ready_list.begin());
-        return ret;
-    }
-
-    /* all_threads_handle*/
-    void add_to_all_threads(std::pair<int, thread *> pair1) {
-        all_threads.insert(pair1);
-    }
-
-    thread *find_in_all_thread(int i) {
-        return all_threads.at(i);
-    }
-
-    map *get_all_threads() {
-        return &all_threads;
-    }
-
-    thread* get_thread(int i) {
-        return all_threads.at(i);
-    }
-
-    int remove_thread(int i) {
-        auto erase_thread = all_threads.at(i);
-        all_threads.erase(i);
-        switch (erase_thread->place_) {
-            case thread::Running:
-                jump_to_thread(ready_list_top_pop())
-                timer_handler(0);
-        }
-    }
-};
-
-
-scheduler sc;
-
 typedef unsigned long address_t;
 #define JB_SP 6
 #define JB_PC 7
-
-/* A translation is required when using an address of a variable.
-   Use this as a black box in your code. */
 
 address_t translate_address(address_t addr) {
     address_t ret;
@@ -146,99 +30,255 @@ address_t translate_address(address_t addr) {
     return ret;
 }
 
+
+class Thread {
+public:
+    enum place {
+        Ready, Running, Blocked
+    };
+    bool is_blocked = false;
+    int time_sleep = 0;
+    thread_entry_point entry_point;
+    int id;
+    place place;
+    char stack[STACK_SIZE]{0};
+
+    Thread(thread_entry_point entryPoint, int id, enum place place) :
+            entry_point(entryPoint), id(id), place(place) {
+    }
+};
+
+typedef std::priority_queue<int, std::vector<int>, std::greater<int> > min_heap;
+typedef std::map<int, Thread *> map_thread;
+typedef std::unique_ptr<Thread> thread_ptr;
+typedef std::vector<int> vector_int;
+
+class Scheduler {
+public:
+    min_heap free_id_list;
+
+    int free_id_list_top_pop() {
+        int ret = free_id_list.top();
+        free_id_list.pop();
+        return ret;
+    }
+
+    map_thread in_use_threads_map;
+
+    int id_running = 0;
+
+    vector_int ready_list;
+
+    int ready_list_top_pop() {
+        if (ready_list.empty()) { return -1; }
+        int ret = ready_list.at(0);
+        ready_list.erase(ready_list.begin());
+        return ret;
+    }
+
+    vector_int blocked;
+
+    sigjmp_buf env[MAX_THREAD_NUM]{};
+
+    void update_sleepers() {
+        vector_int temp_blocked = blocked;
+        for (auto t: blocked) {
+            auto thr = in_use_threads_map.at(t);
+            if (thr->time_sleep) {
+                thr->time_sleep = thr->time_sleep - 1;
+            }
+            if (thr->time_sleep == 0 && !thr->is_blocked) {
+                thr->place = Thread::Ready;
+                ready_list.push_back(t);
+                blocked.erase(std::remove(blocked.begin(), blocked.end(), t));
+            }
+        }
+    }
+};
+
+
+bool start_time(int usecs);
+
+void time_handler(int);
+
+void move_to_next_ready_thread(bool move_to_ready);
+
+void print_error(std::string msg);
+
+
+Scheduler sc;
+
 int uthread_init(int quantum_usecs) {
-
+    /*
+     * check usec valid
+     */
     if (quantum_usecs <= 0) {
-        printf("setitimer error.");
+        print_error("invalid quantum time, should be positive integer");
         return -1;
     }
-    sc.setQuantum(quantum_usecs);
 
+    /*
+     * Init
+     */
     for (int i = 1; i < MAX_THREAD_NUM; ++i) {
-        sc.push_free_id(i);
+        sc.free_id_list.push(i);
     }
 
-    sc.setRunning(0);
-
+    /*
+     * set SIGVTALRM
+     */
     struct sigaction sa = {0};
-    struct itimerval timer = {0};
-    sa.sa_handler = &timer_handler;
+    sa.sa_handler = &time_handler;
     sa.sa_flags = 10;
-
     if (sigaction(SIGVTALRM, &sa, NULL) < 0) {
-        fprintf(stderr, "sigaction error.");
+        print_error("sigaction error.");
         return -1;
     }
 
+    /*
+     * set timer to quantum_usecs
+     */
+    struct itimerval timer = {0};
+    timer.it_value.tv_sec = 0;        // first time interval, seconds part
     timer.it_value.tv_usec = quantum_usecs;        // first time interval, microseconds part
-    timer.it_interval.tv_usec = quantum_usecs;    // following time intervals, microseconds part
+    timer.it_interval.tv_sec = 0;    // following time intervals, seconds part
+    timer.it_interval.tv_usec = quantum_usecs;
     if (setitimer(ITIMER_VIRTUAL, &timer, NULL)) {
-        printf("setitimer error.");
+        print_error("setitimer error.");
         return -1;
     }
     return 0;
 }
 
-void timer_handler(int sig) {
-    int ret_val = sigsetjmp(sc.env[sc.getRunning()], 1);
-//    printf("yield: ret_val=%d\n", ret_val);
-    bool did_just_save_bookmark = ret_val == 0;
-//    bool did_jump_from_another_thread = ret_val != 0;
-    if (did_just_save_bookmark) {
-        jump_to_thread(sc.ready_list_top_pop());
-    }
-}
-
-
-void jump_to_thread(int tid) {
-    sc.add_ready_list(sc.getRunning());
-    sc.setRunning(tid);
-    printf("jumping to %d \n", tid);
-    siglongjmp(sc.env[tid], 1);
-}
-
-
 int uthread_spawn(thread_entry_point entry_point) {
-    if (sc.is_id_empty()) { return -1; }
-    int free_id = sc.top_and_pop_free_id();
-    auto thread_ = new thread(entry_point, free_id, thread::Ready);
-    sc.add_ready_list(free_id);
-    address_t sp = (address_t) thread_->stack + STACK_SIZE - sizeof(address_t);
+    // signal mask, wouldn't want to be interrupt in the middle of
+
+    /*
+     * check if there are more free id
+     */
+    if (sc.free_id_list.empty()) {
+        print_error("there are no more free id");
+        return -1;
+    }
+
+    /*
+     * Init
+     */
+    int free_id = sc.free_id_list_top_pop();
+    auto thread = new Thread(entry_point, free_id, Thread::Ready);
+
+    /*
+     * put the new thread in ready_list
+     */
+    sc.ready_list.push_back(free_id);
+    sc.in_use_threads_map.insert(std::pair<int, Thread *>(free_id, thread));
+    address_t sp = (address_t) thread->stack + STACK_SIZE - sizeof(address_t);
     address_t pc = (address_t) entry_point;
     sigsetjmp(sc.env[free_id], 1);
     (sc.env[free_id]->__jmpbuf)[JB_SP] = translate_address(sp);
     (sc.env[free_id]->__jmpbuf)[JB_PC] = translate_address(pc);
     sigemptyset(&sc.env[free_id]->__saved_mask);
-    sc.add_to_all_threads(std::pair<int, thread *>(free_id, thread_));
     return 0;
 }
 
 int uthread_terminate(int tid) {
-    int res;
-    auto res_thread = sc.find_in_all_thread(tid);
-    auto thread_place = res_thread->place_;
+    /*
+     * check validity
+     */
+    if (sc.in_use_threads_map.count(tid) == 0) {
+        print_error("doesnt match any in use thread id");
+        return -1;
+    }
+
+    /*
+     * check if the thread is the 0 thread
+     */
+    if (tid == 0) {
+        for (auto &item: sc.in_use_threads_map) {
+            delete item.second; // releasing all resource
+            exit(EXIT_SUCCESS);
+        }
+    }
+    /*
+     * main
+     */
+    auto cur_thread = sc.in_use_threads_map.at(tid);
+    sc.in_use_threads_map.erase(tid);
+    switch (cur_thread->place) {
+        case Thread::Ready:
+            sc.ready_list.erase(std::remove(sc.ready_list.begin(), sc.ready_list.end(), tid));
+            break;
+        case Thread::Blocked:
+            sc.blocked.erase(std::remove(sc.blocked.begin(), sc.blocked.end(), tid));
+            break;
+        case Thread::Running:
+            move_to_next_ready_thread(true);
+            sc.ready_list.erase(std::remove(sc.ready_list.begin(), sc.ready_list.end(), tid));
+            break;
+    }
+}
+
+void time_handler(int) {
+    move_to_next_ready_thread(true);
+}
+
+void move_to_next_ready_thread(bool move_to_ready) {
+    // mask
+    auto next = sc.ready_list_top_pop();
+    sc.in_use_threads_map.at(next)->place = Thread::Running;
+    if (move_to_ready) {
+        sc.ready_list.push_back(sc.id_running);
+        sc.in_use_threads_map.at(sc.id_running)->place = Thread::Ready;
+    }
+    int ret_val = sigsetjmp(sc.env[sc.id_running], 1);
+    bool did_just_save_bookmark = ret_val == 0;
+    if (did_just_save_bookmark) {
+        sc.id_running = next;
+        printf("jumping to %d \n", next);
+        siglongjmp(sc.env[next], 1);
+    }
+}
+
+void print_error(std::string msg) { fprintf(stderr, "thread library error: %s", msg.c_str()); }
+
+/**
+ * @brief Blocks the thread with ID tid. The thread may be resumed later using uthread_resume.
+ *
+ * If no thread with ID tid exists it is considered as an error. In addition, it is an error to try blocking the
+ * main thread (tid == 0). If a thread blocks itself, a scheduling decision should be made. Blocking a thread in
+ * BLOCKED state has no effect and is not considered an error.
+ *
+ * @return On success, return 0. On failure, return -1.
+*/
+int uthread_block(int tid) {
+    if (tid == 0 || sc.in_use_threads_map.count(tid) == 0) {
+        print_error("doesnt match any in use thread id");
+        return -1;
+    }
+    auto cur_thread = sc.in_use_threads_map.at(tid);
+    if (cur_thread->is_blocked) {
+        return 0;
+    }
+    if (cur_thread->place == Thread::Ready) {
+        sc.ready_list.erase(std::remove(sc.ready_list.begin(), sc.ready_list.end(), tid));
+    } else {
+        move_to_next_ready_thread(false);
+    }
+    sc.blocked.push_back(tid);
+    cur_thread->place = Thread::Blocked;
+    cur_thread->is_blocked = true;
     return 0;
 }
 
-remove_from_vector(int tid) {
-    sc.remove_thread(tid);
-    auto cur_thread = sc.get_thread(tid);
-    auto thread_place = cur_thread->place_;
-
-    auto all_threads = sc.get_all_threads();
-    thread::place cur_place = all_threads.at(tid)->place_;
-    switch (cur_place) {
-        case thread::Ready:
-            ready_list.erase(std::remove(ready_list.begin(), ready_list.end(), tid), ready_list.end());
-            return;
-        case thread::Blocked:
-            blocked.erase(std::remove(ready_list.begin(), ready_list.end(), tid), ready_list.end());
-            return;
-        case thread::Running:
-            running = -1;
-            return;
-        default:
-            return;
-    }
+/**
+ * @brief Resumes a blocked thread with ID tid and moves it to the READY state.
+ *
+ * Resuming a thread in a RUNNING or READY state has no effect and is not considered as an error. If no thread with
+ * ID tid exists it is considered an error.
+ *
+ * @return On success, return 0. On failure, return -1.
+*/
+int uthread_resume(int tid) {
+    return 0;
 }
 
