@@ -40,12 +40,12 @@ public:
     int time_sleep = 0;
     int id;
     int sum_quantums = 0;
-    thread_entry_point entry_point;
     place place;
     char stack[STACK_SIZE]{0};
 
-    Thread(thread_entry_point entryPoint, int id, enum place place) :
-            entry_point(entryPoint), id(id), place(place) {
+    Thread(int id, enum place place) :
+            id(id), place(place) {
+
     }
 };
 
@@ -57,8 +57,9 @@ typedef std::vector<int> vector_int;
 class Scheduler {
 public:
     int quantum_usecs = 0;
-    int time_counter = 0;
+    int time_counter = 1;
     min_heap free_id_list;
+    sigset_t *sig_mask_set;
 
     int free_id_list_top_pop() {
         int ret = free_id_list.top();
@@ -128,7 +129,12 @@ int uthread_init(int quantum_usecs) {
     for (int i = 1; i < MAX_THREAD_NUM; ++i) {
         sc.free_id_list.push(i);
     }
+    auto first_thread = new Thread(0, Thread::Running);
+    first_thread->sum_quantums = 1;
+    sc.in_use_threads_map[0] = first_thread;
     sc.quantum_usecs = quantum_usecs;
+    sigemptyset(sc.sig_mask_set);
+    sigaddset(sc.sig_mask_set, SIGVTALRM);
     /*
      * set SIGVTALRM
      */
@@ -161,6 +167,8 @@ int uthread_spawn(thread_entry_point entry_point) {
     /*
      * check if there are more free id
      */
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
+
     if (sc.free_id_list.empty()) {
         print_error("there are no more free id");
         return -1;
@@ -170,12 +178,11 @@ int uthread_spawn(thread_entry_point entry_point) {
      * Init
      */
     int free_id = sc.free_id_list_top_pop();
-    auto thread = new Thread(entry_point, free_id, Thread::Ready);
+    auto thread = new Thread(free_id, Thread::Ready);
 
     /*
      * put the new thread in ready_list
      */
-
     sc.ready_list.push_back(free_id);
     sc.in_use_threads_map.insert(std::pair<int, Thread *>(free_id, thread));
     address_t sp = (address_t) thread->stack + STACK_SIZE - sizeof(address_t);
@@ -184,13 +191,16 @@ int uthread_spawn(thread_entry_point entry_point) {
     (sc.env[free_id]->__jmpbuf)[JB_SP] = translate_address(sp);
     (sc.env[free_id]->__jmpbuf)[JB_PC] = translate_address(pc);
     sigemptyset(&sc.env[free_id]->__saved_mask);
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
 
 int uthread_terminate(int tid) {
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
     /*
      * check if the thread is the 0 thread
      */
+
     if (tid == 0) {
         for (auto &item: sc.in_use_threads_map) {
             delete item.second; // releasing all resource
@@ -219,23 +229,31 @@ int uthread_terminate(int tid) {
             sc.blocked.erase(std::remove(sc.blocked.begin(), sc.blocked.end(), tid));
             break;
         case Thread::Running:
-            move_to_next_ready_thread(true);
-            sc.ready_list.erase(std::remove(sc.ready_list.begin(), sc.ready_list.end(), tid));
+            move_to_next_ready_thread(false);
             break;
     }
+    sc.free_id_list.push(tid);
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
+    return 0;
 }
 
 void time_handler(int) {
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
     sc.time_counter++;
     move_to_next_ready_thread(true);
     sc.update_sleepers();
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
 }
 
+
 void move_to_next_ready_thread(bool move_to_ready) {
-    // mask
+    if (sc.ready_list.empty()) {
+        sc.in_use_threads_map.at(sc.id_running)->sum_quantums++;
+        return;
+    }
     auto next = sc.ready_list_top_pop();
-    sc.in_use_threads_map.at(next)->place = Thread::Running;
     sc.in_use_threads_map.at(next)->sum_quantums++;
+    sc.in_use_threads_map.at(next)->place = Thread::Running;
     if (move_to_ready) {
         sc.ready_list.push_back(sc.id_running);
         sc.in_use_threads_map.at(sc.id_running)->place = Thread::Ready;
@@ -244,7 +262,7 @@ void move_to_next_ready_thread(bool move_to_ready) {
     bool did_just_save_bookmark = ret_val == 0;
     if (did_just_save_bookmark) {
         sc.id_running = next;
-        printf("jumping to %d \n", next);
+//        printf("jumping to %d \n", next);
         siglongjmp(sc.env[next], 1);
     }
 }
@@ -261,6 +279,8 @@ void print_error(std::string msg) { fprintf(stderr, "thread library error: %s", 
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_block(int tid) {
+    sigprocmask( SIG_BLOCK, sc.sig_mask_set, NULL);
+
     if (tid == 0 || sc.in_use_threads_map.count(tid) == 0) {
         print_error("doesnt match any in use thread id");
         return -1;
@@ -277,6 +297,7 @@ int uthread_block(int tid) {
     sc.blocked.push_back(tid);
     cur_thread->place = Thread::Blocked;
     cur_thread->is_blocked = true;
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
 
@@ -298,6 +319,7 @@ int uthread_resume(int tid) {
         return 0;
     }
     cur_thread->is_blocked = false;
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
 
@@ -313,6 +335,8 @@ int uthread_resume(int tid) {
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_sleep(int num_quantums) {
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
+
     // need to mask
     if (sc.id_running == 0) {
         print_error("rani go home you're tired");
@@ -327,6 +351,7 @@ int uthread_sleep(int num_quantums) {
     cur_thread->place = Thread::Blocked;
     cur_thread->time_sleep = num_quantums;
     sc.blocked.push_back(sc.id_running);
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
 
@@ -336,6 +361,7 @@ bool reset_timer() {
     timer.it_value.tv_usec = sc.quantum_usecs;        // first time interval, microseconds part
     timer.it_interval.tv_sec = 0;    // following time intervals, seconds part
     timer.it_interval.tv_usec = sc.quantum_usecs;
+
     if (setitimer(ITIMER_VIRTUAL, &timer, NULL)) {
         return false;
     }
@@ -371,10 +397,14 @@ int uthread_get_total_quantums() { return sc.time_counter; }
  * @return On success, return the number of quantums of the thread with ID tid. On failure, return -1.
 */
 int uthread_get_quantums(int tid) {
+
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
     if (sc.in_use_threads_map.count(tid) == 0) {
         print_error("doesnt match any in use thread id");
         return -1;
     }
+    sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
+
     return sc.in_use_threads_map.at(tid)->sum_quantums;
 }
 

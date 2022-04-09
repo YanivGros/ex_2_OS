@@ -163,32 +163,32 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/main.cpp.s
 .PHONY : main.cpp.s
 
-test/test1.in.o: test/test1.in.cpp.o
+test/main.o: test/main.cpp.o
 
-.PHONY : test/test1.in.o
+.PHONY : test/main.o
 
 # target to build an object file
-test/test1.in.cpp.o:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.o
-.PHONY : test/test1.in.cpp.o
+test/main.cpp.o:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/main.cpp.o
+.PHONY : test/main.cpp.o
 
-test/test1.in.i: test/test1.in.cpp.i
+test/main.i: test/main.cpp.i
 
-.PHONY : test/test1.in.i
+.PHONY : test/main.i
 
 # target to preprocess a source file
-test/test1.in.cpp.i:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.i
-.PHONY : test/test1.in.cpp.i
+test/main.cpp.i:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/main.cpp.i
+.PHONY : test/main.cpp.i
 
-test/test1.in.s: test/test1.in.cpp.s
+test/main.s: test/main.cpp.s
 
-.PHONY : test/test1.in.s
+.PHONY : test/main.s
 
 # target to generate assembly for a file
-test/test1.in.cpp.s:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/test1.in.cpp.s
-.PHONY : test/test1.in.cpp.s
+test/main.cpp.s:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test/main.cpp.s
+.PHONY : test/main.cpp.s
 
 uthreads.o: uthreads.cpp.o
 
@@ -233,9 +233,9 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
-	@echo "... test/test1.in.o"
-	@echo "... test/test1.in.i"
-	@echo "... test/test1.in.s"
+	@echo "... test/main.o"
+	@echo "... test/main.i"
+	@echo "... test/main.s"
 	@echo "... uthreads.o"
 	@echo "... uthreads.i"
 	@echo "... uthreads.s"
