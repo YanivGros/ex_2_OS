@@ -94,7 +94,7 @@ public:
             if (thr->time_sleep == 0 && !thr->is_blocked) {
                 thr->place = Thread::Ready;
                 ready_list.push_back(t);
-                blocked.erase(std::remove(blocked.begin(), blocked.end(), t));
+                temp_blocked.erase(std::remove(temp_blocked.begin(), temp_blocked.end(), t));
             }
         }
         blocked = temp_blocked;
@@ -192,7 +192,7 @@ int uthread_spawn(thread_entry_point entry_point) {
     (sc.env[free_id]->__jmpbuf)[JB_PC] = translate_address(pc);
     sigemptyset(&sc.env[free_id]->__saved_mask);
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
-    return 0;
+    return free_id;
 }
 
 int uthread_terminate(int tid) {
@@ -228,11 +228,11 @@ int uthread_terminate(int tid) {
         case Thread::Blocked:
             sc.blocked.erase(std::remove(sc.blocked.begin(), sc.blocked.end(), tid));
             break;
-        case Thread::Running:
-            move_to_next_ready_thread(false);
-            break;
     }
     sc.free_id_list.push(tid);
+    if(cur_thread->place == Thread::Running){
+        move_to_next_ready_thread(false);
+    }
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
@@ -240,8 +240,8 @@ int uthread_terminate(int tid) {
 void time_handler(int) {
     sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
     sc.time_counter++;
-    move_to_next_ready_thread(true);
     sc.update_sleepers();
+    move_to_next_ready_thread(true);
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
 }
 
@@ -280,7 +280,6 @@ void print_error(std::string msg) { fprintf(stderr, "thread library error: %s", 
 */
 int uthread_block(int tid) {
     sigprocmask( SIG_BLOCK, sc.sig_mask_set, NULL);
-
     if (tid == 0 || sc.in_use_threads_map.count(tid) == 0) {
         print_error("doesnt match any in use thread id");
         return -1;
@@ -291,12 +290,15 @@ int uthread_block(int tid) {
     }
     if (cur_thread->place == Thread::Ready) {
         sc.ready_list.erase(std::remove(sc.ready_list.begin(), sc.ready_list.end(), tid));
+        sc.blocked.push_back(tid);
+        cur_thread->place = Thread::Blocked;
+        cur_thread->is_blocked = true;
     } else {
+        sc.blocked.push_back(tid);
+        cur_thread->place = Thread::Blocked;
+        cur_thread->is_blocked = true;
         move_to_next_ready_thread(false);
     }
-    sc.blocked.push_back(tid);
-    cur_thread->place = Thread::Blocked;
-    cur_thread->is_blocked = true;
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
@@ -343,14 +345,14 @@ int uthread_sleep(int num_quantums) {
         return -1;
     }
     auto cur_thread = sc.in_use_threads_map.at(sc.id_running);
-    move_to_next_ready_thread(false);
+    cur_thread->place = Thread::Blocked;
+    cur_thread->time_sleep = num_quantums;
+    sc.blocked.push_back(sc.id_running);
     if (!reset_timer()) {
         print_error("setitimer error.");
         return -1;
     }
-    cur_thread->place = Thread::Blocked;
-    cur_thread->time_sleep = num_quantums;
-    sc.blocked.push_back(sc.id_running);
+    move_to_next_ready_thread(false);
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
 }
