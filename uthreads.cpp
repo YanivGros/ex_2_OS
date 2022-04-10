@@ -60,7 +60,7 @@ public:
     int time_counter = 1;
     min_heap free_id_list;
     sigset_t temp;
-    sigset_t *sig_mask_set =&temp;
+    sigset_t *sig_mask_set = &temp;
 
     int free_id_list_top_pop() {
         int ret = free_id_list.top();
@@ -86,8 +86,9 @@ public:
     sigjmp_buf env[MAX_THREAD_NUM]{};
 
     void update_sleepers() {
+
         vector_int temp_blocked = blocked;
-        for (auto t: blocked) {
+        for (auto t: temp_blocked) {
             auto thr = in_use_threads_map.at(t);
             if (thr->time_sleep) {
                 thr->time_sleep = thr->time_sleep - 1;
@@ -95,10 +96,9 @@ public:
             if (thr->time_sleep == 0 && !thr->is_blocked) {
                 thr->place = Thread::Ready;
                 ready_list.push_back(t);
-                temp_blocked.erase(std::remove(temp_blocked.begin(), temp_blocked.end(), t));
+                blocked.erase(std::remove(blocked.begin(), blocked.end(), t));
             }
         }
-        blocked = temp_blocked;
     }
 };
 
@@ -234,11 +234,11 @@ int uthread_terminate(int tid) {
         case Thread::Blocked:
             sc.blocked.erase(std::remove(sc.blocked.begin(), sc.blocked.end(), tid));
             break;
-    }
-    if (cur_place == Thread::Running) {
-        reset_timer();
-        sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
-        move_to_next_ready_thread(false);
+        case Thread::Running:
+            reset_timer();
+            sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
+            move_to_next_ready_thread(false);
+
     }
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
     return 0;
@@ -257,6 +257,7 @@ void move_to_next_ready_thread(bool move_to_ready) {
     sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
     if (sc.ready_list.empty()) {
         sc.in_use_threads_map.at(sc.id_running)->sum_quantums++;
+        sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
         return;
     }
     auto next = sc.ready_list_top_pop();
@@ -278,7 +279,7 @@ void move_to_next_ready_thread(bool move_to_ready) {
 }
 
 void print_error(std::string msg) {
-    std::cerr << "thread library error: " << msg;
+    std::cerr << "thread library error: " << msg<< std::endl;
     sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
 }
 
@@ -298,7 +299,8 @@ int uthread_block(int tid) {
         return -1;
     }
     auto cur_thread = sc.in_use_threads_map.at(tid);
-    if (cur_thread->is_blocked) {
+    if (cur_thread->place == Thread::Blocked) {
+        cur_thread->is_blocked = true;
         return 0;
     }
     if (cur_thread->place == Thread::Ready) {
@@ -335,6 +337,7 @@ int uthread_resume(int tid) {
     }
     auto cur_thread = sc.in_use_threads_map.at(tid);
     if (cur_thread->place == Thread::Ready || cur_thread->place == Thread::Running) {
+        sigprocmask(SIG_UNBLOCK, sc.sig_mask_set, NULL);
         return 0;
     }
     cur_thread->is_blocked = false;
@@ -364,9 +367,9 @@ int uthread_sleep(int num_quantums) {
     auto cur_thread = sc.in_use_threads_map.at(sc.id_running);
     if (cur_thread->place != Thread::Blocked) {
         cur_thread->place = Thread::Blocked;
+        sc.blocked.push_back(sc.id_running);
     }
     cur_thread->time_sleep = num_quantums;
-    sc.blocked.push_back(sc.id_running);
     if (!reset_timer()) {
         print_error("setitimer error.");
         return -1;

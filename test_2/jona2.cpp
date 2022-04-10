@@ -72,8 +72,7 @@ int main()
     }
 
     while (!all_done())
-    {
-        uthread_resume(1);
+    {uthread_resume(1);
     }
 
     printf(GRN "SUCCESS\n" RESET);

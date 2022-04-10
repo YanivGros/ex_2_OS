@@ -163,32 +163,32 @@ main.cpp.s:
 	$(MAKE) -f CMakeFiles/untitled3.dir/build.make CMakeFiles/untitled3.dir/main.cpp.s
 .PHONY : main.cpp.s
 
-test_2/jona2.o: test_2/jona2.cpp.o
+test_2/test3.in.o: test_2/test3.in.cpp.o
 
-.PHONY : test_2/jona2.o
+.PHONY : test_2/test3.in.o
 
 # target to build an object file
-test_2/jona2.cpp.o:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/jona2.cpp.o
-.PHONY : test_2/jona2.cpp.o
+test_2/test3.in.cpp.o:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/test3.in.cpp.o
+.PHONY : test_2/test3.in.cpp.o
 
-test_2/jona2.i: test_2/jona2.cpp.i
+test_2/test3.in.i: test_2/test3.in.cpp.i
 
-.PHONY : test_2/jona2.i
+.PHONY : test_2/test3.in.i
 
 # target to preprocess a source file
-test_2/jona2.cpp.i:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/jona2.cpp.i
-.PHONY : test_2/jona2.cpp.i
+test_2/test3.in.cpp.i:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/test3.in.cpp.i
+.PHONY : test_2/test3.in.cpp.i
 
-test_2/jona2.s: test_2/jona2.cpp.s
+test_2/test3.in.s: test_2/test3.in.cpp.s
 
-.PHONY : test_2/jona2.s
+.PHONY : test_2/test3.in.s
 
 # target to generate assembly for a file
-test_2/jona2.cpp.s:
-	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/jona2.cpp.s
-.PHONY : test_2/jona2.cpp.s
+test_2/test3.in.cpp.s:
+	$(MAKE) -f CMakeFiles/untitled32.dir/build.make CMakeFiles/untitled32.dir/test_2/test3.in.cpp.s
+.PHONY : test_2/test3.in.cpp.s
 
 uthreads.o: uthreads.cpp.o
 
@@ -233,9 +233,9 @@ help:
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
-	@echo "... test_2/jona2.o"
-	@echo "... test_2/jona2.i"
-	@echo "... test_2/jona2.s"
+	@echo "... test_2/test3.in.o"
+	@echo "... test_2/test3.in.i"
+	@echo "... test_2/test3.in.s"
 	@echo "... uthreads.o"
 	@echo "... uthreads.i"
 	@echo "... uthreads.s"
