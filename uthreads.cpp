@@ -331,6 +331,8 @@ int uthread_block(int tid) {
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_resume(int tid) {
+    sigprocmask(SIG_BLOCK, sc.sig_mask_set, NULL);
+
     if (sc.in_use_threads_map.count(tid) == 0) {
         print_error("doesnt match any in use thread id");
         return -1;
